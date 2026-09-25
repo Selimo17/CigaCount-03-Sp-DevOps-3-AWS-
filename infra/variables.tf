@@ -112,6 +112,28 @@ variable "container_insights" {
 variable "github_repository" {
   description = "GitHub repository allowed to deploy, as owner/name (case-sensitive)."
   type        = string
+
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "Use the owner/name format, e.g. octocat/my-repo."
+  }
+}
+
+variable "github_owner_id" {
+  description = <<-EOT
+    Numeric ID of the GitHub repository owner. GitHub OIDC tokens may identify
+    the repository as "owner@owner_id/name@repository_id": pinning the IDs
+    prevents a renamed or recreated account/repository from deploying.
+    When null, any ID is accepted for this owner name.
+  EOT
+  type        = number
+  default     = null
+}
+
+variable "github_repository_id" {
+  description = "Numeric ID of the GitHub repository (see github_owner_id). When null, any ID is accepted."
+  type        = number
+  default     = null
 }
 
 variable "github_branch" {

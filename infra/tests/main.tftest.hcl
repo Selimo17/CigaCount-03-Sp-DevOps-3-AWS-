@@ -119,6 +119,33 @@ run "default_configuration_is_cheap_and_public" {
     condition     = length(aws_lb_listener.https) == 0
     error_message = "No HTTPS listener without certificate."
   }
+
+  assert {
+    condition = local.github_subjects == [
+      "repo:example-owner/example-repo:ref:refs/heads/main",
+      "repo:example-owner@*/example-repo@*:ref:refs/heads/main",
+    ]
+    error_message = "Both GitHub OIDC subject formats must be trusted for the main branch."
+  }
+}
+
+run "github_ids_are_pinned" {
+  command = apply
+
+  variables {
+    github_owner_id      = 42
+    github_repository_id = 1337
+  }
+
+  assert {
+    condition     = contains(local.github_subjects, "repo:example-owner@42/example-repo@1337:ref:refs/heads/main")
+    error_message = "The immutable GitHub IDs must be pinned in the trusted subject."
+  }
+
+  assert {
+    condition     = alltrue([for subject in local.github_subjects : !strcontains(subject, "*")])
+    error_message = "No wildcard may remain once the IDs are pinned."
+  }
 }
 
 run "tasks_are_hardened" {
