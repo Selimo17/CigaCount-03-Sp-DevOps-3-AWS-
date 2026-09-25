@@ -1,0 +1,143 @@
+# Continuous deployment: on every push to main, run the CI checks, then
+# build the image, publish it to Amazon ECR and deploy it on ECS Fargate.
+#
+# No AWS secret is stored in GitHub: the workflow authenticates with OpenID
+# Connect and assumes an IAM role restricted to this repository and branch.
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   AWS_ROLE_ARN  (required) output "github_actions_role_arn" of Terraform
+#   AWS_REGION    (optional) defaults to eu-west-3
+#   APP_URL       (optional) output "app_url" of Terraform, enables the smoke test
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+  workflow_dispatch:
+
+# Never run two deployments at the same time; never cancel one in progress.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-3' }}
+  ECR_REPOSITORY: cigacount
+  ECS_CLUSTER: cigacount-cluster
+  ECS_SERVICE: cigacount-service
+  TASK_FAMILY: cigacount
+  CONTAINER_NAME: cigacount
+
+jobs:
+  checks:
+    name: CI checks
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Build, publish and deploy
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # required to request the OIDC token
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check configuration
+        env:
+          AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "::error::Repository variable AWS_ROLE_ARN is missing (see README, CI/CD section)."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: github-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The image is tagged with the commit SHA: tags are immutable in ECR,
+      # so every running version can be traced back to its source code.
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          build-args: APP_VERSION=${{ github.sha }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report vulnerability scan (ECR scan on push)
+        continue-on-error: true
+        run: |
+          aws ecr wait image-scan-complete \
+            --repository-name "$ECR_REPOSITORY" --image-id imageTag="$GITHUB_SHA"
+          aws ecr describe-image-scan-findings \
+            --repository-name "$ECR_REPOSITORY" --image-id imageTag="$GITHUB_SHA" \
+            --query 'imageScanFindings.findingSeverityCounts' --output table | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Takes the latest revision of the task definition (the one managed by
+      # Terraform or the previous deployment) and only replaces the image.
+      - name: Render task definition with the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        with:
+          task-definition-family: ${{ env.TASK_FAMILY }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      # Rolling update; the ECS circuit breaker rolls back a failing release.
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true
+          wait-for-minutes: 15
+
+      - name: Smoke test the deployed version
+        if: vars.APP_URL != ''
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          for attempt in $(seq 1 20); do
+            version=$(curl --silent --fail "$APP_URL/api/health" | jq -r '.version' || true)
+            if [ "$version" = "$GITHUB_SHA" ]; then
+              echo "Version $version is live at $APP_URL"
+              exit 0
+            fi
+            echo "Attempt $attempt: live version is '$version', waiting..."
+            sleep 15
+          done
+          exit 1
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "### Deployment"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Image: \`${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:$GITHUB_SHA\`"
+            echo "- Service: \`$ECS_CLUSTER/$ECS_SERVICE\` ($AWS_REGION)"
+          } >> "$GITHUB_STEP_SUMMARY"
