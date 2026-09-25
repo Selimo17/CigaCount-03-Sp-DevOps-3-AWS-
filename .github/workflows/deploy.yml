@@ -15,7 +15,7 @@ on:
       - main
     paths-ignore:
       - "**.md"
-      - "docs/**"
+      - "shema_architecture.png"
   workflow_dispatch:
 
 # Never run two deployments at the same time; never cancel one in progress.
