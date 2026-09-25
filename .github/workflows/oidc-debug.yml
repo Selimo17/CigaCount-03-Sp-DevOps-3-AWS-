@@ -1,0 +1,24 @@
+# Diagnostic tool kept as a trace of the OIDC troubleshooting (see README,
+# "Journal de bord"). Run it manually (Actions > OIDC debug > Run workflow)
+# to print the public claims of the GitHub OIDC token (never the token
+# itself) and compare them with the IAM trust policy of the deployment role.
+name: OIDC debug
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  claims:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Print OIDC token claims
+        run: |
+          token=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          payload=$(echo "$token" | cut -d '.' -f2 | tr '_-' '/+')
+          while [ $(( ${#payload} % 4 )) -ne 0 ]; do payload="${payload}="; done
+          echo "$payload" | base64 -d | jq '{sub, aud, iss, ref, repository, repository_owner, job_workflow_ref}'
