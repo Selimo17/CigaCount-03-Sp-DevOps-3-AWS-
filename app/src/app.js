@@ -97,7 +97,8 @@ export function createApp({ version = process.env.APP_VERSION ?? 'dev' } = {}) {
   });
 
   // Centralized error handler: log with stack trace, hide details from clients.
-  // eslint-disable-next-line no-unused-vars
+  // Express recognizes an error handler by its four parameters, so "next" is
+  // kept even though it is not used.
   app.use((err, req, res, next) => {
     logger.error('unhandled_error', {
       method: req.method,
