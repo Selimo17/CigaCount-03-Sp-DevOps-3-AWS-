@@ -215,8 +215,8 @@ terraform -chdir=infra/bootstrap init
 terraform -chdir=infra/bootstrap apply
 terraform -chdir=infra/bootstrap output -raw backend_config | Set-Content -Encoding ascii infra/backend.hcl
 
-# 2. Infrastructure
-terraform -chdir=infra init -backend-config=backend.hcl
+# 2. Infrastructure (guillemets obligatoires sous PowerShell autour de -backend-config)
+terraform -chdir=infra init "-backend-config=backend.hcl"
 terraform -chdir=infra plan
 terraform -chdir=infra apply
 
