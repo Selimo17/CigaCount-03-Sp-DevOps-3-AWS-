@@ -91,6 +91,20 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["*"] # these actions do not support resource-level permissions
   }
 
+  # The task definition is registered with its tags (copied from the previous
+  # revision): tagging is only allowed while registering this family.
+  statement {
+    sid       = "TagNewTaskDefinitions"
+    actions   = ["ecs:TagResource"]
+    resources = ["arn:aws:ecs:${var.aws_region}:${local.account_id}:task-definition/${aws_ecs_task_definition.app.family}:*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ecs:CreateAction"
+      values   = ["RegisterTaskDefinition"]
+    }
+  }
+
   statement {
     sid = "DeployService"
     actions = [
