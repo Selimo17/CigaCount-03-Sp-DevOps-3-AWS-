@@ -90,7 +90,7 @@ function rateCard(ledger) {
 
 export function renderDashboard({ state, ledger }) {
   return `
-    <h1 class="page-title">Mon tableau de bord</h1>
+    <h1 class="page-title">Tableau de bord</h1>
     ${balanceCard(ledger, state)}
     ${todayCard(ledger)}
     ${goalCard(ledger)}
