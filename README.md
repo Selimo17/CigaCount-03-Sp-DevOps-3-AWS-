@@ -6,6 +6,16 @@ Le cœur du projet est la partie DevOps : l'application est **conteneurisée ave
 
 > ⚠️ CigaCount est un outil de suivi budgétaire : **il ne remplace pas un accompagnement médical**. Tabac Info Service : 39 89 – [tabac-info-service.fr](https://www.tabac-info-service.fr).
 
+## Application en ligne
+
+| | |
+|---|---|
+| **URL** | `http://<APP_URL>` *(sortie `app_url` de Terraform, à renseigner après le déploiement)* |
+| **Contrôle de santé** | `http://<APP_URL>/api/health` (renvoie la version déployée = SHA du commit) |
+| **Disponibilité** | en ligne jusqu'à la correction, puis environnement détruit (voir [section 10](#10-destruction-de-lenvironnement)) |
+
+L'environnement est hébergé sur un compte AWS en **plan gratuit** : il est financé par les crédits AWS offerts, sans facturation possible. Si l'URL ne répond plus, l'environnement peut être recréé à l'identique en une vingtaine de minutes ([section 7](#7-déploiement-sur-aws)).
+
 ---
 
 ## Sommaire
@@ -392,4 +402,4 @@ Ordre de grandeur pour la configuration par défaut en `eu-west-3` (tarifs publi
 | ECR, S3, SNS | < 1 $ |
 | **Total** | **≈ 40 à 45 $/mois (≈ 1,5 $/jour)** |
 
-➡️ Pour une évaluation, déployer, faire la démonstration puis **détruire l'environnement** (section 10).
+➡️ Sur un compte AWS en **plan gratuit**, ce coût est prélevé sur les crédits offerts (≈ 2 mois en ligne pour 100 $ de crédits) : l'application reste accessible jusqu'à la correction, puis l'environnement est **détruit** (section 10). Surveiller le solde dans *Billing and Cost Management → Credits*.

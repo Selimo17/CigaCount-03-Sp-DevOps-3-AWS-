@@ -7,8 +7,10 @@ github_repository = "Selimo17/CigaCount-03-Sp-DevOps-3-AWS-"
 github_branch     = "main"
 
 # Receives the alarms and the budget alerts (confirm the subscription e-mail).
+# The default setup costs about 40-45 USD a month: a 50 USD budget only
+# alerts on an unexpected cost increase.
 alert_email        = "you@example.com"
-monthly_budget_usd = 30
+monthly_budget_usd = 50
 
 # Set to false if a GitHub OIDC provider already exists in the AWS account.
 create_github_oidc_provider = true
