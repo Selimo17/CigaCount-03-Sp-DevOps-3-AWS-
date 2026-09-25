@@ -1,0 +1,14 @@
+# Local run: docker compose up --build  ->  http://localhost:3000
+services:
+  app:
+    build:
+      context: ./app
+      args:
+        APP_VERSION: local
+    ports:
+      - "3000:3000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
