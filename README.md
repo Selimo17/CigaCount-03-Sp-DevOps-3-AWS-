@@ -10,8 +10,9 @@ Le cœur du projet est la partie DevOps : l'application est **conteneurisée ave
 
 | | |
 |---|---|
-| **URL** | `http://<APP_URL>` *(sortie `app_url` de Terraform, à renseigner après le déploiement)* |
-| **Contrôle de santé** | `http://<APP_URL>/api/health` (renvoie la version déployée = SHA du commit) |
+| **URL** | <http://cigacount-alb-530625861.eu-west-3.elb.amazonaws.com> |
+| **Contrôle de santé** | <http://cigacount-alb-530625861.eu-west-3.elb.amazonaws.com/api/health> (renvoie la version déployée = SHA du commit) |
+| **Vidéo explicative** | *lien Loom / YouTube non répertorié à ajouter* (voir [section 14](#14-vidéo-explicative)) |
 | **Disponibilité** | en ligne jusqu'à la correction, puis environnement détruit (voir [section 10](#10-destruction-de-lenvironnement)) |
 
 L'environnement est hébergé sur un compte AWS en **plan gratuit** : il est financé par les crédits AWS offerts, sans facturation possible. Si l'URL ne répond plus, l'environnement peut être recréé à l'identique en une vingtaine de minutes ([section 7](#7-déploiement-sur-aws)).
@@ -33,6 +34,9 @@ L'environnement est hébergé sur un compte AWS en **plan gratuit** : il est fin
 11. [Choix techniques](#11-choix-techniques)
 12. [Risques et améliorations pour la production](#12-risques-et-améliorations-pour-la-production)
 13. [Estimation des coûts](#13-estimation-des-coûts)
+14. [Vidéo explicative](#14-vidéo-explicative)
+15. [Journal de bord : difficultés et recherches](#15-journal-de-bord--difficultés-et-recherches)
+16. [Sources consultées](#16-sources-consultées)
 
 ---
 
@@ -50,6 +54,9 @@ L'environnement est hébergé sur un compte AWS en **plan gratuit** : il est fin
 | 5. Logs CloudWatch + métriques/alertes | [`infra/monitoring.tf`](infra/monitoring.tf) · [`app/src/logger.js`](app/src/logger.js) |
 | 6a. Schéma d'architecture | [`docs/architecture.svg`](docs/architecture.svg) / [`docs/architecture.png`](docs/architecture.png) |
 | 6b. Risques et améliorations | [section 12](#12-risques-et-améliorations-pour-la-production) |
+| README : déploiement, destruction, choix techniques | sections [7](#7-déploiement-sur-aws), [10](#10-destruction-de-lenvironnement), [11](#11-choix-techniques) |
+| Vidéo explicative | [section 14](#14-vidéo-explicative) |
+| Traces de recherche et sources | sections [15](#15-journal-de-bord--difficultés-et-recherches) et [16](#16-sources-consultées) |
 
 ---
 
@@ -122,9 +129,9 @@ Le serveur Node.js (Express) sert l'application, expose `GET /api/health` (utili
 │   ├── bootstrap/              # Terraform – bucket S3 du state distant
 │   ├── tests/                  # Tests Terraform hors-ligne (provider mocké)
 │   └── *.tf                    # network, alb, ecr, ecs, iam, github_oidc, monitoring…
-├── .github/workflows/          # ci.yml (vérifications) et deploy.yml (déploiement)
+├── .github/workflows/          # ci.yml (vérifications), deploy.yml (déploiement), oidc-debug.yml (diagnostic)
 ├── scripts/                    # deploy.ps1 / destroy.ps1 (Windows PowerShell)
-├── docs/                       # Schéma d'architecture
+├── docs/                       # Schéma d'architecture (SVG source + PNG)
 └── compose.yaml                # Lancement local avec Docker Compose
 ```
 
@@ -138,6 +145,8 @@ Avec **Docker** (recommandé) :
 docker compose up --build
 # http://localhost:3000
 ```
+
+> Docker Desktop doit afficher « Engine running ». Sous Windows, il nécessite la virtualisation et WSL 2 (voir [section 15.1](#151-docker-desktop-et-la-virtualisation)).
 
 Avec **Node.js 22+** :
 
@@ -184,7 +193,13 @@ Copy-Item infra\terraform.tfvars.example infra\terraform.tfvars
 notepad infra\terraform.tfvars
 ```
 
-Renseigner au minimum `github_repository` (`propriétaire/nom-du-dépôt`, sensible à la casse) et `alert_email`. Le fichier `terraform.tfvars` est ignoré par git.
+Renseigner au minimum :
+
+- `github_repository` : `propriétaire/nom-du-dépôt` (sensible à la casse) ;
+- `github_owner_id` et `github_repository_id` : identifiants numériques du propriétaire et du dépôt, utilisés par GitHub dans le jeton OIDC (valeurs publiques : champ `id` de `https://api.github.com/users/<propriétaire>` et de `https://api.github.com/repos/<propriétaire>/<dépôt>`) ;
+- `alert_email` : adresse qui reçoit les alarmes et les alertes de budget.
+
+Le fichier `terraform.tfvars` est ignoré par git.
 
 ---
 
@@ -259,7 +274,9 @@ Avec un nom de domaine : créer un certificat **ACM** dans la région, puis rens
 
 **Autres bonnes pratiques** : actions tierces épinglées par SHA de commit, `concurrency` pour ne jamais lancer deux déploiements en parallèle, tags d'images immuables (traçabilité commit ↔ version en production), cache de build Docker, *circuit breaker* ECS avec rollback automatique.
 
-**Rollback manuel** : relancer le workflow *Deploy* sur un commit précédent (*Run workflow* sur un tag/commit) ou, dans ECS, mettre à jour le service vers la révision précédente de la *task definition*.
+**Rollback manuel** : `git revert <commit>` puis push sur `main` (la pipeline redéploie la version précédente), ou, en urgence, mettre à jour le service ECS vers la révision précédente de la *task definition* (console ECS ou `aws ecs update-service --task-definition cigacount:<révision>`). Le rôle de déploiement n'est utilisable que depuis `main` : relancer le workflow sur une autre branche ou un tag est refusé.
+
+**Diagnostic OIDC** : le workflow manuel [`oidc-debug.yml`](.github/workflows/oidc-debug.yml) affiche les informations publiques du jeton OIDC (jamais le jeton lui-même) pour les comparer à la politique de confiance du rôle (voir [section 15.2](#152-premier-déploiement-refusé-par-aws-oidc)).
 
 ---
 
@@ -346,7 +363,7 @@ La destruction est complète sans action dans la console : le dépôt ECR est su
 | IAM | Rôle d'exécution restreint à un dépôt ECR et un groupe de logs ; **pas de task role** ; rôle CI limité | Moindre privilège (pas de politique gérée `*`) |
 | Registre | ECR, tags **immuables** = SHA du commit, scan à l'envoi, politique de rétention (15 images) | Traçabilité, sécurité, maîtrise du stockage |
 | IaC | Terraform, state S3 chiffré/versionné avec **verrouillage natif** (`use_lockfile`), stack de bootstrap séparée | Travail en équipe sûr, sans DynamoDB |
-| Tests IaC | `terraform test` avec **provider mocké** | Vérifie des règles (durcissement, HTTPS, NAT) en CI, sans compte AWS |
+| Tests IaC | `terraform test` avec **provider mocké** | Vérifie des règles (durcissement, HTTPS, NAT, identité OIDC) en CI, sans compte AWS |
 | CI/CD | GitHub Actions + **OIDC** ; déploiement par nouvelle révision de *task definition* | Aucun secret long terme ; Terraform n'est pas exécuté en CI, donc le rôle CI n'a pas besoin de droits d'administration |
 | Terraform vs pipeline | `ignore_changes = [task_definition, desired_count]` sur le service | La pipeline gère la version déployée et l'auto scaling le nombre de tâches, sans conflit avec Terraform |
 | Supervision | CloudWatch Logs, filtre de métrique, alarmes, dashboard, SNS, AWS Budgets | Natif AWS, pas d'outil tiers à héberger |
@@ -403,3 +420,106 @@ Ordre de grandeur pour la configuration par défaut en `eu-west-3` (tarifs publi
 | **Total** | **≈ 40 à 45 $/mois (≈ 1,5 $/jour)** |
 
 ➡️ Sur un compte AWS en **plan gratuit**, ce coût est prélevé sur les crédits offerts (≈ 2 mois en ligne pour 100 $ de crédits) : l'application reste accessible jusqu'à la correction, puis l'environnement est **détruit** (section 10). Surveiller le solde dans *Billing and Cost Management → Credits*.
+
+---
+
+## 14. Vidéo explicative
+
+🎥 **Lien : à ajouter** (Loom ou YouTube en non répertorié).
+
+Contenu de la vidéo :
+
+1. Démonstration de l'application en ligne (onboarding, déclaration, objectifs, statistiques, coût, réglages).
+2. Architecture AWS à partir du schéma.
+3. Code : Dockerfile, fichiers Terraform (réseau, ALB, ECS, IAM, OIDC, monitoring), workflows GitHub Actions, logger et règles de calcul.
+4. Démonstration du CD : modification du code, push sur `main`, pipeline, nouvelle version visible sur `/api/health`.
+5. Exploitation : logs CloudWatch, dashboard, alarme déclenchée et e-mail reçu.
+6. Risques, améliorations et destruction de l'environnement.
+
+---
+
+## 15. Journal de bord : difficultés et recherches
+
+Traces des problèmes rencontrés pendant la réalisation, de leur diagnostic et de leur résolution. Les runs en échec restent visibles dans l'onglet *Actions* du dépôt.
+
+### 15.1 Docker Desktop et la virtualisation
+
+- **Symptôme** : Docker Desktop affichait « Virtualization support not detected » et `docker compose` ne trouvait pas le moteur (`npipe:////./pipe/docker_engine`).
+- **Contexte** : poste Windows 10 Entreprise 22H2, processeur Intel Core i7-7700HQ.
+- **Diagnostic** : `(Get-CimInstance Win32_Processor).VirtualizationFirmwareEnabled` renvoyait `True` (VT-x actif dans le BIOS) mais `(Get-CimInstance Win32_ComputerSystem).HypervisorPresent` renvoyait `False` : l'hyperviseur Windows n'était pas lancé.
+- **Résolution** (PowerShell administrateur, puis redémarrage) :
+  ```powershell
+  dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+  dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+  bcdedit /set hypervisorlaunchtype auto
+  wsl --update
+  ```
+
+### 15.2 Premier déploiement refusé par AWS (OIDC)
+
+- **Symptôme** : le premier run du workflow *Deploy* échouait à l'étape *Configure AWS credentials (OIDC)* avec « Could not assume role with OIDC: Not authorized to perform sts:AssumeRoleWithWebIdentity ».
+- **Hypothèses écartées** : variable `AWS_ROLE_ARN` erronée, audience (`aud`) incorrecte, run lancé depuis une autre branche que `main`.
+- **Diagnostic** : un workflow temporaire (conservé : [`oidc-debug.yml`](.github/workflows/oidc-debug.yml)) a affiché les *claims* du jeton. GitHub émettait le `sub` au format avec identifiants immuables, `repo:Selimo17@114984615/CigaCount-03-Sp-DevOps-3-AWS-@1387317443:ref:refs/heads/main`, alors que la politique de confiance n'acceptait que `repo:Selimo17/CigaCount-03-Sp-DevOps-3-AWS-:ref:refs/heads/main`.
+- **Résolution** : la condition `sub` accepte les deux formats (`StringLike`), avec les identifiants épinglés par `github_owner_id` et `github_repository_id` (aucun joker `*`), puis `terraform apply` depuis le poste (le rôle de la pipeline n'a volontairement pas le droit de modifier IAM). Test Terraform ajouté.
+
+### 15.3 Permission manquante anticipée : `ecs:TagResource`
+
+En lisant le code source de l'action `amazon-ecs-render-task-definition`, il est apparu qu'elle recopie les *tags* de la révision précédente. Enregistrer une *task definition* avec des tags exige `ecs:TagResource` : la permission a été ajoutée, limitée à la famille `cigacount` et à l'action `RegisterTaskDefinition`.
+
+### 15.4 PowerShell : « No positional arguments are expected »
+
+`terraform -chdir=infra init -backend-config=backend.hcl` échoue sous PowerShell, qui découpe l'argument au niveau du point. Il faut le mettre entre guillemets : `"-backend-config=backend.hcl"`. Les scripts `deploy.ps1` / `destroy.ps1` n'étaient pas concernés (arguments passés en tableau de chaînes).
+
+### 15.5 Remplacement systématique de la *task definition*
+
+Chaque `terraform plan` proposait de remplacer la *task definition* : ECS renvoie des valeurs par défaut (`hostPort`, listes vides `mountPoints`, `volumesFrom`, `systemControls`, `capabilities.add`) absentes de la configuration. La définition du conteneur est désormais écrite exactement comme ECS la renvoie.
+
+### 15.6 Autres ajustements
+
+- **Runners GitHub** : GitHub annonçait la migration du label `ubuntu-latest` vers Ubuntu 26 au 19 octobre 2026 ; les runners sont épinglés sur `ubuntu-24.04` pour éviter un changement pendant la période de correction.
+- **Versions des actions** : les dernières versions ont été relevées avec `git ls-remote --tags`, et chaque action tierce est épinglée par SHA de commit.
+- **Validation hors-ligne de Terraform** : `terraform test` avec provider AWS mocké. Les ressources mockées ont reçu des ARN réalistes, car le provider valide leur format.
+- **Coût** : compte AWS en plan gratuit (crédits offerts). Configuration par défaut sans NAT gateway ni Container Insights, une seule tâche Fargate.
+
+---
+
+## 16. Sources consultées
+
+**AWS**
+
+- ECS – paramètres des *task definitions* : <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html>
+- ECS – *deployment circuit breaker* : <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-circuit-breaker.html>
+- ECS – rôle d'exécution des tâches : <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html>
+- IAM – fournisseurs d'identité OIDC : <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html>
+- CloudWatch Logs – syntaxe des filtres de métriques : <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html>
+- Application Load Balancer – health checks : <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html>
+- Offre gratuite et tarifs : <https://aws.amazon.com/free/>, <https://aws.amazon.com/fargate/pricing/>, <https://aws.amazon.com/elasticloadbalancing/pricing/>, <https://aws.amazon.com/vpc/pricing/>
+
+**Terraform**
+
+- Provider AWS : <https://registry.terraform.io/providers/hashicorp/aws/latest/docs>
+- Backend S3 et verrouillage natif (`use_lockfile`) : <https://developer.hashicorp.com/terraform/language/backend/s3>
+- Tests et providers mockés : <https://developer.hashicorp.com/terraform/language/tests/mocking>
+
+**GitHub Actions**
+
+- OpenID Connect avec AWS : <https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services>
+- Principe et *claims* du jeton OIDC : <https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect>
+- Actions AWS : <https://github.com/aws-actions/configure-aws-credentials>, <https://github.com/aws-actions/amazon-ecr-login>, <https://github.com/aws-actions/amazon-ecs-render-task-definition>, <https://github.com/aws-actions/amazon-ecs-deploy-task-definition>
+- Migration du label `ubuntu-latest` : <https://github.com/actions/runner-images/issues/14748>
+- actionlint : <https://github.com/rhysd/actionlint>
+
+**Docker et Windows**
+
+- Bonnes pratiques Dockerfile : <https://docs.docker.com/build/building/best-practices/>
+- hadolint : <https://github.com/hadolint/hadolint>
+- Docker Desktop sous Windows : <https://docs.docker.com/desktop/setup/install/windows-install/>
+- Installation de WSL : <https://learn.microsoft.com/windows/wsl/install>
+
+**Application**
+
+- Express : <https://expressjs.com/> · Helmet : <https://helmetjs.github.io/>
+- IndexedDB : <https://developer.mozilla.org/docs/Web/API/IndexedDB_API>
+- `Intl.DateTimeFormat` (fuseaux horaires) : <https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat>
+- Test runner Node.js : <https://nodejs.org/api/test.html>
+- Tabac Info Service : <https://www.tabac-info-service.fr>
