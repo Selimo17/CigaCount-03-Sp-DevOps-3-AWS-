@@ -45,13 +45,20 @@ resource "aws_ecs_task_definition" "app" {
       image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
       essential = true
 
+      # Values are written exactly as ECS returns them (hostPort, empty lists)
+      # so that Terraform does not detect a false difference on every plan
+      # and replace the task definition for nothing.
       portMappings = [
         {
           name          = "http"
           containerPort = var.container_port
+          hostPort      = var.container_port
           protocol      = "tcp"
         }
       ]
+      mountPoints    = []
+      volumesFrom    = []
+      systemControls = []
 
       environment = [
         { name = "PORT", value = tostring(var.container_port) },
@@ -62,7 +69,7 @@ resource "aws_ecs_task_definition" "app" {
       user                   = "1000:1000"
       readonlyRootFilesystem = true
       linuxParameters = {
-        capabilities       = { drop = ["ALL"] }
+        capabilities       = { add = [], drop = ["ALL"] }
         initProcessEnabled = true
       }
 
