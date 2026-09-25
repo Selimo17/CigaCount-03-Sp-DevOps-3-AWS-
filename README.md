@@ -5,6 +5,7 @@ Déploiement automatisé d'une application web conteneurisée sur AWS (ECS Farga
 L'application, CigaCount, aide un fumeur à voir ce que lui coûte sa consommation et à transformer sa réduction en épargne pour un objectif d'achat. Elle ne remplace pas un accompagnement médical (Tabac Info Service : 39 89).
 
 - Application en ligne : http://cigacount-alb-530625861.eu-west-3.elb.amazonaws.com (jusqu'à la correction)
+- Repo GitHub : https://github.com/Selimo17/CigaCount-03-Sp-DevOps-3-AWS-
 - Vidéo explicative : *lien à ajouter*
 
 ## Architecture
