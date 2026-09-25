@@ -1,0 +1,7 @@
+# Copy this file to backend.hcl (ignored by git) with the values printed by
+# the bootstrap stack: terraform -chdir=infra/bootstrap output -raw backend_config
+bucket       = "cigacount-tfstate-123456789012-eu-west-3"
+key          = "cigacount/terraform.tfstate"
+region       = "eu-west-3"
+encrypt      = true
+use_lockfile = true
