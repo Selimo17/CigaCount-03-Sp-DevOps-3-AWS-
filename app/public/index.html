@@ -1,1 +1,40 @@
-<!doctype html><title>CigaCount</title>
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Visualisez le coût réel de votre consommation de tabac et transformez votre réduction en épargne vers un objectif." />
+    <meta name="theme-color" content="#0f766e" />
+    <title>CigaCount</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script type="module" src="/js/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Aller au contenu</a>
+    <header class="app-header">
+      <a class="brand" href="#/">CigaCount</a>
+    </header>
+
+    <main id="main" class="container" tabindex="-1">
+      <p class="card">Chargement…</p>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <button id="declare-button" class="fab" type="button" hidden aria-label="Déclarer une cigarette maintenant">
+      <span aria-hidden="true">+1</span>
+    </button>
+
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Navigation principale" hidden>
+      <a href="#/">Accueil</a>
+      <a href="#/goals">Objectifs</a>
+      <a href="#/stats">Stats</a>
+      <a href="#/cost">Coût</a>
+      <a href="#/settings">Réglages</a>
+    </nav>
+
+    <noscript><p class="container">CigaCount nécessite JavaScript.</p></noscript>
+  </body>
+</html>
