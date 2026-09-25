@@ -6,11 +6,11 @@ L'application, CigaCount, aide un fumeur à voir ce que lui coûte sa consommati
 
 - Application en ligne : http://cigacount-alb-530625861.eu-west-3.elb.amazonaws.com (jusqu'à la correction)
 - Repo GitHub : https://github.com/Selimo17/CigaCount-03-Sp-DevOps-3-AWS-
-- Vidéo explicative : *lien à ajouter*
+- Vidéo explicative : https://youtu.be/GLV9ikP2Ab4
 
 ## Architecture
 
-![Architecture AWS](docs/architecture.png)
+![Architecture AWS](shema_architecture.png)
 
 - Un Application Load Balancer public reçoit le trafic et le transmet aux tâches ECS Fargate (conteneur Node.js, port 3000).
 - Le VPC a deux sous-réseaux publics sur deux zones de disponibilité. Les tâches n'acceptent que le trafic venant du load balancer.
@@ -20,14 +20,14 @@ L'application, CigaCount, aide un fumeur à voir ce que lui coûte sa consommati
 
 ## Contenu du dépôt
 
-| Dossier | Contenu |
+| Élément | Contenu |
 |---|---|
 | `app/` | Application (Node.js / Express), `Dockerfile`, tests |
 | `infra/` | Terraform : réseau, ALB, ECR, ECS, IAM, monitoring |
 | `infra/bootstrap/` | Terraform : bucket S3 pour le state |
 | `.github/workflows/` | Pipeline CI/CD |
 | `scripts/` | Scripts PowerShell de déploiement et de destruction |
-| `docs/` | Schéma d'architecture |
+| `shema_architecture.png` | Schéma d'architecture |
 
 ## Lancer en local
 
