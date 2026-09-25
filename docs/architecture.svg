@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 860" width="1280" height="860" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="13">
+  <title>CigaCount - AWS architecture</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#232f3e"/>
+    </marker>
+    <marker id="arrow-ci" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7b3fe4"/>
+    </marker>
+    <marker id="arrow-mon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d6246e"/>
+    </marker>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #232f3e; }
+      .group-label { font-size: 14px; font-weight: 700; }
+      .box { fill: #ffffff; stroke: #232f3e; stroke-width: 1.5; rx: 8; }
+      .name { font-weight: 700; fill: #232f3e; }
+      .detail { font-size: 12px; fill: #45505c; }
+      .edge-label { font-size: 12px; fill: #232f3e; }
+      .flow { fill: none; stroke: #232f3e; stroke-width: 2; }
+      .flow-ci { fill: none; stroke: #7b3fe4; stroke-width: 2; stroke-dasharray: 7 5; }
+      .flow-mon { fill: none; stroke: #d6246e; stroke-width: 2; stroke-dasharray: 2 4; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="860" fill="#ffffff"/>
+  <text class="title" x="24" y="40">CigaCount – architecture AWS</text>
+
+  <!-- ===== Outside AWS ===== -->
+  <rect class="box" x="24" y="80" width="250" height="84"/>
+  <text class="name" x="40" y="106">Utilisateur</text>
+  <text class="detail" x="40" y="126">Navigateur mobile / desktop</text>
+  <text class="detail" x="40" y="144">Données locales (IndexedDB)</text>
+
+  <rect class="box" x="24" y="300" width="250" height="84"/>
+  <text class="name" x="40" y="326">Développeur (Windows)</text>
+  <text class="detail" x="40" y="346">Terraform · AWS CLI · Docker</text>
+  <text class="detail" x="40" y="364">scripts/deploy.ps1 · destroy.ps1</text>
+
+  <rect x="24" y="450" width="250" height="250" rx="10" fill="#f6f8fa" stroke="#24292f" stroke-width="1.5"/>
+  <text class="group-label" x="40" y="474" fill="#24292f">GitHub</text>
+  <rect class="box" x="40" y="488" width="218" height="44"/>
+  <text class="name" x="56" y="515">Dépôt · branche main</text>
+  <rect class="box" x="40" y="548" width="218" height="136"/>
+  <text class="name" x="56" y="572">GitHub Actions</text>
+  <text class="detail" x="56" y="594">CI : tests Node, npm audit,</text>
+  <text class="detail" x="56" y="611">hadolint, terraform test</text>
+  <text class="detail" x="56" y="634">CD : build → push ECR</text>
+  <text class="detail" x="56" y="651">→ déploiement ECS</text>
+  <text class="detail" x="56" y="672">Auth. OIDC, aucune clé AWS</text>
+
+  <!-- git push -->
+  <path class="flow-ci" d="M149,384 V446" marker-end="url(#arrow-ci)"/>
+  <text class="edge-label" x="158" y="420">git push</text>
+
+  <!-- ===== AWS Cloud ===== -->
+  <rect x="320" y="64" width="944" height="780" rx="12" fill="#ffffff" stroke="#232f3e" stroke-width="2" stroke-dasharray="10 6"/>
+  <text class="group-label" x="340" y="90" fill="#232f3e">AWS – région eu-west-3 (Paris)</text>
+
+  <!-- VPC -->
+  <rect x="344" y="106" width="560" height="440" rx="10" fill="#f2f9f1" stroke="#248814" stroke-width="2"/>
+  <text class="group-label" x="360" y="160" fill="#248814">VPC 10.0.0.0/16</text>
+
+  <rect class="box" x="560" y="116" width="170" height="40"/>
+  <text class="name" x="578" y="141">Internet Gateway</text>
+
+  <!-- Availability zones -->
+  <rect x="364" y="172" width="258" height="330" rx="8" fill="none" stroke="#147eba" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text class="detail" x="376" y="192" fill="#147eba">Zone de disponibilité A</text>
+  <rect x="632" y="172" width="258" height="330" rx="8" fill="none" stroke="#147eba" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text class="detail" x="644" y="192" fill="#147eba">Zone de disponibilité B</text>
+
+  <rect x="376" y="202" width="234" height="288" rx="6" fill="#e6f4e3" stroke="#7aa116" stroke-width="1"/>
+  <text class="detail" x="388" y="220">Sous-réseau public 10.0.0.0/24</text>
+  <rect x="644" y="202" width="234" height="288" rx="6" fill="#e6f4e3" stroke="#7aa116" stroke-width="1"/>
+  <text class="detail" x="656" y="220">Sous-réseau public 10.0.1.0/24</text>
+
+  <!-- ALB -->
+  <rect class="box" x="400" y="236" width="454" height="70" stroke="#8c4fff"/>
+  <text class="name" x="416" y="260">Application Load Balancer</text>
+  <text class="detail" x="416" y="279">HTTP :80 (HTTPS :443 + redirection si certificat ACM)</text>
+  <text class="detail" x="416" y="296">SG alb : 80/443 depuis Internet → 3000 vers SG tasks uniquement</text>
+
+  <!-- Fargate tasks -->
+  <rect class="box" x="392" y="352" width="202" height="104" stroke="#ed7100"/>
+  <text class="name" x="406" y="376">Tâche ECS Fargate</text>
+  <text class="detail" x="406" y="396">Node.js :3000 · 0,25 vCPU</text>
+  <text class="detail" x="406" y="413">non-root · FS lecture seule</text>
+  <text class="detail" x="406" y="430">GET /api/health</text>
+  <text class="detail" x="406" y="447">SG tasks : 3000 depuis ALB</text>
+
+  <rect class="box" x="660" y="352" width="202" height="104" stroke="#ed7100" stroke-dasharray="5 3"/>
+  <text class="name" x="674" y="376">Tâche ECS Fargate</text>
+  <text class="detail" x="674" y="396">Auto scaling CPU 60 %</text>
+  <text class="detail" x="674" y="413">1 → 3 tâches</text>
+  <text class="detail" x="674" y="430">Circuit breaker + rollback</text>
+
+  <text class="detail" x="360" y="520">Cluster ECS cigacount-cluster · service cigacount-service</text>
+  <text class="detail" x="360" y="537">Rolling update 100 % / 200 % · option prod : sous-réseaux privés + NAT</text>
+
+  <!-- Regional services -->
+  <rect class="box" x="940" y="106" width="300" height="70" stroke="#ed7100"/>
+  <text class="name" x="956" y="130">Amazon ECR</text>
+  <text class="detail" x="956" y="149">Image taguée par SHA de commit</text>
+  <text class="detail" x="956" y="166">Tags immuables · scan à l'envoi · pull par ECS</text>
+
+  <rect class="box" x="940" y="196" width="300" height="86" stroke="#dd344c"/>
+  <text class="name" x="956" y="220">IAM (moindre privilège)</text>
+  <text class="detail" x="956" y="240">Rôle d'exécution ECS : pull + logs</text>
+  <text class="detail" x="956" y="257">Rôle GitHub OIDC : push ECR + deploy</text>
+  <text class="detail" x="956" y="274">Aucun rôle applicatif (task role)</text>
+
+  <rect class="box" x="940" y="302" width="300" height="62" stroke="#d6246e"/>
+  <text class="name" x="956" y="326">CloudWatch Logs</text>
+  <text class="detail" x="956" y="346">/ecs/cigacount · logs JSON des tâches · 14 j</text>
+
+  <rect class="box" x="940" y="388" width="300" height="104" stroke="#d6246e"/>
+  <text class="name" x="956" y="412">CloudWatch métriques &amp; alarmes</text>
+  <text class="detail" x="956" y="432">Filtre level = error → ApplicationErrors</text>
+  <text class="detail" x="956" y="449">Alarmes : 0 tâche saine, 5xx, p95 &gt; 1 s,</text>
+  <text class="detail" x="956" y="466">CPU / mémoire &gt; 85 %</text>
+  <text class="detail" x="956" y="483">Dashboard cigacount</text>
+
+  <rect class="box" x="940" y="516" width="300" height="50" stroke="#d6246e"/>
+  <text class="name" x="956" y="546">Amazon SNS → e-mail d'alerte</text>
+
+  <rect class="box" x="940" y="590" width="300" height="50" stroke="#7aa116"/>
+  <text class="name" x="956" y="620">AWS Budgets → alerte de coût</text>
+
+  <rect class="box" x="344" y="578" width="330" height="70" stroke="#7aa116"/>
+  <text class="name" x="360" y="602">Amazon S3 – state Terraform</text>
+  <text class="detail" x="360" y="622">Chiffré · versionné · accès public bloqué</text>
+  <text class="detail" x="360" y="639">Verrouillage natif (use_lockfile)</text>
+
+  <!-- ===== User traffic ===== -->
+  <path class="flow" d="M274,136 H560" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="440" y="128">HTTP(S)</text>
+  <path class="flow" d="M645,156 V236" marker-end="url(#arrow)"/>
+  <path class="flow" d="M493,306 V352" marker-end="url(#arrow)"/>
+  <path class="flow" d="M761,306 V352" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="500" y="334">:3000</text>
+  <text class="edge-label" x="768" y="334">:3000</text>
+
+  <!-- ===== Infrastructure as Code ===== -->
+  <path class="flow" d="M274,342 H306 V613 H344" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="298" y="600" transform="rotate(-90 298 600)">terraform apply / destroy</text>
+
+  <!-- ===== CI/CD ===== -->
+  <path class="flow-ci" d="M258,676 H926 V141 H940" marker-end="url(#arrow-ci)"/>
+  <text class="edge-label" x="540" y="668" fill="#7b3fe4">docker push (image:SHA)</text>
+  <path class="flow-ci" d="M845,676 V456" marker-end="url(#arrow-ci)"/>
+  <text class="edge-label" x="836" y="590" fill="#7b3fe4" text-anchor="end">UpdateService</text>
+  <text class="edge-label" x="836" y="606" fill="#7b3fe4" text-anchor="end">(nouvelle révision)</text>
+  <path class="flow-ci" d="M926,239 H940" marker-end="url(#arrow-ci)"/>
+  <text class="edge-label" x="360" y="700" fill="#7b3fe4">OIDC : AssumeRoleWithWebIdentity (identifiants temporaires, branche main uniquement)</text>
+
+  <!-- ===== Monitoring ===== -->
+  <path class="flow-mon" d="M862,420 H900 V333 H940" marker-end="url(#arrow-mon)"/>
+  <path class="flow-mon" d="M1090,364 V388" marker-end="url(#arrow-mon)"/>
+  <path class="flow-mon" d="M1090,492 V516" marker-end="url(#arrow-mon)"/>
+
+  <!-- ===== Legend ===== -->
+  <rect x="344" y="740" width="896" height="84" rx="8" fill="#fafafa" stroke="#d0d7de"/>
+  <text class="group-label" x="360" y="764" fill="#232f3e">Légende</text>
+  <path class="flow" d="M360,790 H410" marker-end="url(#arrow)"/>
+  <text class="edge-label" x="420" y="794">Trafic applicatif / provisionnement</text>
+  <path class="flow-ci" d="M640,790 H690" marker-end="url(#arrow-ci)"/>
+  <text class="edge-label" x="700" y="794">Pipeline CI/CD</text>
+  <path class="flow-mon" d="M840,790 H890" marker-end="url(#arrow-mon)"/>
+  <text class="edge-label" x="900" y="794">Supervision</text>
+  <text class="detail" x="360" y="814">Tous les éléments AWS sont créés par Terraform (infra/) ; le state est stocké dans S3 (infra/bootstrap).</text>
+</svg>
