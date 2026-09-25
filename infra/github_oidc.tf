@@ -25,6 +25,25 @@ locals {
     ? aws_iam_openid_connect_provider.github[0].arn
     : data.aws_iam_openid_connect_provider.github[0].arn
   )
+
+  github_owner           = split("/", var.github_repository)[0]
+  github_repository_name = split("/", var.github_repository)[1]
+  github_subject_suffix  = "ref:refs/heads/${var.github_branch}"
+
+  # Subjects allowed to assume the deployment role. GitHub issues either the
+  # classic format "repo:owner/name:..." or the format with immutable IDs
+  # "repo:owner@owner_id/name@repository_id:...".
+  github_subjects = [
+    "repo:${var.github_repository}:${local.github_subject_suffix}",
+    format(
+      "repo:%s@%s/%s@%s:%s",
+      local.github_owner,
+      var.github_owner_id != null ? tostring(var.github_owner_id) : "*",
+      local.github_repository_name,
+      var.github_repository_id != null ? tostring(var.github_repository_id) : "*",
+      local.github_subject_suffix,
+    ),
+  ]
 }
 
 data "aws_iam_policy_document" "github_assume_role" {
@@ -42,10 +61,11 @@ data "aws_iam_policy_document" "github_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # StringLike: "*" only appears in place of an ID that was not pinned.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"]
+      values   = local.github_subjects
     }
   }
 }

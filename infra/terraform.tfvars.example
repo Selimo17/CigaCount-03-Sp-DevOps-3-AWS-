@@ -6,6 +6,12 @@ project_name      = "cigacount"
 github_repository = "Selimo17/CigaCount-03-Sp-DevOps-3-AWS-"
 github_branch     = "main"
 
+# Numeric IDs used by GitHub in OIDC tokens (public information):
+#   owner:      https://api.github.com/users/<owner>          -> "id"
+#   repository: https://api.github.com/repos/<owner>/<name>   -> "id"
+github_owner_id      = 114984615
+github_repository_id = 1387317443
+
 # Receives the alarms and the budget alerts (confirm the subscription e-mail).
 # The default setup costs about 40-45 USD a month: a 50 USD budget only
 # alerts on an unexpected cost increase.
